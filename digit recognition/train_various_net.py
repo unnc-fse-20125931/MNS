@@ -8,17 +8,17 @@ from torchvision import datasets,transforms,models
 from torchvision.datasets import ImageFolder
 from PIL import Image
 import numpy as np
+
 ### resnet 50
-#model = models.resnet50(pretrained=True)
-#model.fc.out_features = 10
-#print(model.fc.out_features)
+model = models.resnet50(pretrained=True)
+fc_features = model.fc.in_features
+model.fc = nn.Linear(fc_features, 10)
 
 
 ### alexnet
-model = models.alexnet(pretrained=True)
-#model.classifier[6].out_features = 10
-fc_features = model.classifier[6].in_features
-model.classifier[6] = nn.Linear(fc_features, 10)
+#model = models.alexnet(pretrained=True)
+#fc_features = model.classifier[6].in_features
+#model.classifier[6] = nn.Linear(fc_features, 10)
 print(model)
 
 optimizer = optim.SGD(model.parameters(), lr=0.01)
@@ -30,15 +30,6 @@ print(DEVICE)
 model.to(DEVICE)
 
 epochs = 10
-
-###train = utils.train_dat_1
-#train_3channel = np.stack([train.dataset.data.numpy(),train.dataset.data.numpy(),train.dataset.data.numpy()],axis = 3)
-### train_3channel : 60000 *28*28*3
-
-#val_3channel = np.stack([val.dataset.data.numpy(),val.dataset.data.numpy(),val.dataset.data.numpy()],axis = 3)
-#test = np.stack([test.dataset.data.numpy(),test.dataset.data.numpy(),test.dataset.data.numpy()],axis = 3)
-
-##train_all.train_data = train_3channel ######
 
 transform_resnet50 = transforms.Compose(
     [transforms.Resize((7,7),Image.ANTIALIAS), #pil image only
@@ -78,7 +69,7 @@ test_data = ImageFolder(
     transform = transform_alexnet
 )
 
-train_loader = DataLoader(train_data, batch_size=40, shuffle=True)
+train_loader = DataLoader(train_data, batch_size=60, shuffle=True)
 val_loader = DataLoader(val_data, batch_size=100, shuffle=True)
 test_loader = DataLoader(test_data, batch_size=100, shuffle=True)
 
@@ -86,14 +77,14 @@ test_loader = DataLoader(test_data, batch_size=100, shuffle=True)
 loss_function = nn.CrossEntropyLoss()
 #loss_function = nn.NLLLoss()
 ### train
-'''
+
 for epoch in range(10):
   for index, (x,label) in enumerate(train_loader):
     x, label = x.to(DEVICE),label.to(DEVICE)
     #x = x.view(-1, 28 * 28) ## -1 equals the batch size ## uncommented only on FullConnectedNetwork
     out = model(x)
     
-    print('train out', out.shape)
+    #print('train out', out.shape)
     
     ### if nll loss function used
     #m = nn.LogSoftmax(dim=1)
@@ -136,9 +127,9 @@ for epoch in range(10):
     if (index+1) % 100 == 0 or (index+1) == len(test_loader):
       print("Train epoch", epoch, 'batch index', index+1, 'loss', float(loss), 'acc', correct*1.0/ count)
 
-torch.save(model, './model_saved.pth')
+torch.save(model, './model_saved_resnet50.pth')
 '''
-model_saved = torch.load('./model_saved.pth')
+model_saved = torch.load('./model_saved_resnet50.pth')
 #model_saved.classifier[6].out_features = 10
 model_saved.eval()
 #print(model_saved)
@@ -166,6 +157,7 @@ max_value,index = torch.max(probability,1)
 all_results = probability.data.cpu().numpy()
 print(all_results.shape)
 print(index)
+'''
 
 
 
