@@ -10,29 +10,51 @@ from PIL import Image
 import numpy as np
 
 ### resnet 50
-model = models.resnet50(pretrained=True)
-fc_features = model.fc.in_features
-model.fc = nn.Linear(fc_features, 10)
+#model = models.resnet50(pretrained=True)
+
+'''
+for param in model.parameters():
+    param.requires_grad = False
+for param in model.fc.parameters():
+    param.requires_grad = True
+'''
+
+#print(model.fc)
+#fc_features = model.fc.in_features
+#model.fc = nn.Linear(fc_features, 10)
 
 
 ### alexnet
-#model = models.alexnet(pretrained=True)
-#fc_features = model.classifier[6].in_features
-#model.classifier[6] = nn.Linear(fc_features, 10)
+model = models.alexnet(pretrained=True)
+fc_features = model.classifier[6].in_features
+model.classifier[6] = nn.Linear(fc_features, 10)
 print(model)
 
-optimizer = optim.SGD(model.parameters(), lr=0.01)
+for param in model.parameters():
+    param.requires_grad = False
+for param in model.classifier.parameters():
+    param.requires_grad = True
+#print(model)
+
+#optimizer = optim.SGD(model.parameters(), lr=0.01)
+optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, model.parameters()),
+                        lr=0.01,momentum=0.9,weight_decay=0.001)
+
 
 DEVICE = torch.device( "cuda" if torch.cuda.is_available() else "cpu")
+#DEVICE = torch.device( "cpu")
 if (torch.cuda.is_available()):
     torch.cuda.empty_cache()  ## may not work
 print(DEVICE)
 model.to(DEVICE)
 
-epochs = 10
+epochs = 20
 
 transform_resnet50 = transforms.Compose(
-    [transforms.Resize((7,7),Image.ANTIALIAS), #pil image only
+    [
+     transforms.RandomResizedCrop(7),
+     transforms.RandomHorizontalFlip(),
+     #transforms.Resize((7,7),Image.ANTIALIAS), #pil image only
      transforms.ToTensor(),
      transforms.Normalize((0.1307,), (0.3081,))] ## fixed parameter provided by pytorch
     ## reduce the model complexity
@@ -44,6 +66,8 @@ transform_alexnet = transforms.Compose(
      transforms.ToTensor(),
      transforms.Normalize((0.1307,), (0.3081,))]
 )
+
+
      ## fixed parameter provided by pytorch])
 
 train_root = "./mnist_png/training"
@@ -70,15 +94,15 @@ test_data = ImageFolder(
 )
 
 train_loader = DataLoader(train_data, batch_size=60, shuffle=True)
-val_loader = DataLoader(val_data, batch_size=100, shuffle=True)
-test_loader = DataLoader(test_data, batch_size=100, shuffle=True)
+val_loader = DataLoader(val_data, batch_size=125, shuffle=True)
+test_loader = DataLoader(test_data, batch_size=125, shuffle=True)
 
 
 loss_function = nn.CrossEntropyLoss()
 #loss_function = nn.NLLLoss()
 ### train
 
-for epoch in range(10):
+for epoch in range(epochs):
   for index, (x,label) in enumerate(train_loader):
     x, label = x.to(DEVICE),label.to(DEVICE)
     #x = x.view(-1, 28 * 28) ## -1 equals the batch size ## uncommented only on FullConnectedNetwork
@@ -90,26 +114,32 @@ for epoch in range(10):
     #m = nn.LogSoftmax(dim=1)
     #loss = loss_function(m(out),label)
     
+    count = correct = 0
+    
     
     ### for crossentropy
     loss = loss_function(out,label)
+    _ , predict = torch.max(out,1)
+    count += x.shape[0]
+    correct += (predict == label).sum()
 
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
 
     if (index+1) % 100 == 0 or (index+1) == len(train_loader):
-      print("Train epoch", epoch, 'batch index', index+1, 'loss', float(loss))
+      print("Train epoch", epoch, 'batch index', index+1, 'loss', float(loss),'train acc', correct*1.0/ count)
 
 
   ### test
+  best_test_acc = 0.0    
   count = correct = 0
   for index, (x,label) in enumerate(test_loader):
     x, label = x.to(DEVICE),label.to(DEVICE)
     #x = x.view(-1, 28*28) ## -1 equals the batch size ## uncommented only on FullConnectedNetwork
     out = model(x)  ## [batch_size, 10]
     
-    print('test out', out.shape)
+    #print('test out', out.shape)
 
     ### if nll loss function used
     #m = nn.LogSoftmax(dim=1)
@@ -122,41 +152,51 @@ for epoch in range(10):
     _ , predict = torch.max(out,1)
     count += x.shape[0]
     correct += (predict == label).sum()
+    
+    if (correct*1.0/ count).item() > best_test_acc:
+        best_test_acc = (correct*1.0/ count).item()
 
 
-    if (index+1) % 100 == 0 or (index+1) == len(test_loader):
-      print("Train epoch", epoch, 'batch index', index+1, 'loss', float(loss), 'acc', correct*1.0/ count)
+    if (index+1) % 10 == 0 or (index+1) == len(test_loader):
+      print("Train epoch", epoch, 'batch index', index+1, 'loss', float(loss), 'test acc', correct*1.0/ count)
 
-torch.save(model, './model_saved_resnet50.pth')
+print('best test acc', best_test_acc)
+torch.save(model, './model_saved_alexnet_3.pth')
+
 '''
-model_saved = torch.load('./model_saved_resnet50.pth')
+model_saved = torch.load('./model_saved_alexnet_1.pth')
 #model_saved.classifier[6].out_features = 10
 model_saved.eval()
 #print(model_saved)
 
-test_picture_name = './test_pics/test_0.png'
-img = Image.open(test_picture_name)
-img = img.convert("RGB")
+##### ./model_saved_alexnet_3.pth'  max acc:99.2 
 
-print(img)
-#img.show()
-#img = img.convert('1') 
-#print(img.shape)
 
-img = transform_alexnet(img)
-#print(img.shape)
+test_picture_name_pre = './test_pics/test_'
+test_picture_name_post = '.png'
+for i in range(10):
+    img = Image.open(test_picture_name_pre + str(i) + test_picture_name_post)
+    img = img.convert("RGB")
 
-img = img.unsqueeze(0)
-img = img.to(DEVICE)
-model_saved = model_saved.to(DEVICE)
-score = model_saved(img)
-print(score.shape)
-probability = torch.nn.functional.softmax(score,dim=1)
-max_value,index = torch.max(probability,1)
+    #print(img)
+    #img.show()
+    #img = img.convert('1') 
+    #print(img.shape)
 
-all_results = probability.data.cpu().numpy()
-print(all_results.shape)
-print(index)
+    img = transform_alexnet(img)
+    #print(img.shape)
+
+    img = img.unsqueeze(0)
+    img = img.to(DEVICE)
+    model_saved = model_saved.to(DEVICE)
+    score = model_saved(img)
+    #print(score.shape)
+    probability = torch.nn.functional.softmax(score,dim=1)
+    max_value,index = torch.max(probability,1)
+
+    all_results = probability.data.cpu().numpy()
+    print(all_results)
+    print(index)
 '''
 
 
