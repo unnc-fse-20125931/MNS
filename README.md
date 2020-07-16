@@ -1,4 +1,10 @@
-# MNS
+# MNS  
+## Running environment:  
+pytorch : 1.5.1 (https://pytorch.org/get-started/locally/)  
+torchvision : 0.6.1  
+cuda : 10.1 (https://developer.nvidia.com/cuda-downloads)  
+cudnn : 7.6.4 (https://developer.nvidia.com/rdp/cudnn-download)  
+
 ## 1. data recognition  
 (1) mnist_png source : https://github.com/appleyuchi/MNIST_PNG  
 (2) 3network_mnist.py : 1. FullConnectedNetwork  2. LeNet  3. GRUNet  
