@@ -13,6 +13,6 @@ cudnn : 7.6.4 (https://developer.nvidia.com/rdp/cudnn-download)
 (5) train_various_py : run this file directly to train alexnet/resnet50 and save the network, also could use the pictures in "test_pics" to train the saved model.  
 (6) utils.py : network training frame  
 (7) model_saved_alexnet_3.pth : saved alexnet model, max acc: 99.2%    
-
+(8) model_saved_alexnet_4.pth : saved alexnet model, max acc: 99.2%    
 
 ## 2. resoning
