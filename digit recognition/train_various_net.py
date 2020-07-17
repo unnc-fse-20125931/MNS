@@ -9,6 +9,8 @@ from torchvision.datasets import ImageFolder
 from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
+import cv2
+import myutils
 
 ### resnet 50
 #model = models.resnet50(pretrained=True)
@@ -105,7 +107,7 @@ train_accs = []
 test_accs = []
 x_axis_train = range(0,9)
 x_axis_test = range(0,8)
-
+'''
 for epoch in range(epochs):
   for index, (x,label) in enumerate(train_loader):
     x, label = x.to(DEVICE),label.to(DEVICE)
@@ -179,9 +181,9 @@ plt.show()
 
 print('best test acc', best_test_acc)
 torch.save(model, './model_saved_alexnet_5.pth')
-
 '''
-model_saved = torch.load('./model_saved_alexnet_3.pth')
+
+model_saved = torch.load('./model_saved_alexnet_4.pth')
 #model_saved.classifier[6].out_features = 10
 model_saved.eval()
 #print(model_saved)
@@ -190,10 +192,14 @@ model_saved.eval()
 ##### ./model_saved_alexnet_4.pth'  max acc:99.2 
 
 
-test_picture_name_pre = './test_pics/test_'
-test_picture_name_post = '.png'
-for i in range(10):
-    img = Image.open(test_picture_name_pre + str(i) + test_picture_name_post)
+
+def cv_show(name,img):
+    cv2.imshow(name,img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    
+    
+def detect_number(img,model):
     img = img.convert("RGB")
 
     #print(img)
@@ -206,17 +212,53 @@ for i in range(10):
 
     img = img.unsqueeze(0)
     img = img.to(DEVICE)
-    model_saved = model_saved.to(DEVICE)
-    score = model_saved(img)
+    model = model.to(DEVICE)
+    score = model(img)
     #print(score.shape)
     probability = torch.nn.functional.softmax(score,dim=1)
     max_value,index = torch.max(probability,1)
 
-    all_results = probability.data.cpu().numpy()
+    #all_results = probability.data.cpu().numpy()
     #print(all_results)
-    print(index)
+    #print(index.item())
+    return index.item()
+    
+
+img = cv2.imread('test_pics/test_54.png') ## read the template
+img_copy = img.copy()
+cv_show('img',img)
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+ret, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY_INV)
+contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+ 
+numbers_contours = contours[1:]
+cv2.drawContours(img_copy, numbers_contours, -1, (0, 255, 0), 3)
+#cv2.namedWindow("Contours", cv2.NORMAL_WINDOW)
+cv_show("Contourss",img)
+
+whole_number = 0
+for (i,c) in enumerate (numbers_contours):
+    (x,y,w,h) = cv2.boundingRect(c)
+    img_cropped = img[y-10:y+h+10,x-10:x+w+10]
+    image = Image.fromarray(cv2.cvtColor(img_cropped,cv2.COLOR_BGR2RGB))
+    #image.show()
+    num = detect_number(image,model_saved)
+    whole_number += (10 ** i) * num
+
+    #cv_show("i",img_cropped)
+print(whole_number)
+
+
+
 '''
+test_picture_name_pre = './test_pics/test_'
+test_picture_name_post = '.png'
+for i in range(10):
+    img = Image.open(test_picture_name_pre + str(i) + test_picture_name_post)
+    img = img.convert("RGB")
 
-
+    number = detect_number(img,model_saved)
+    print(number)
+'''
 
 #utils.run_experiment(model,optimizer,train_loader,val_loader,test_loader,epochs,0,0,False)
