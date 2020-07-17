@@ -1,4 +1,4 @@
-import utils
+#import utils
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -8,6 +8,7 @@ from torchvision import datasets,transforms,models
 from torchvision.datasets import ImageFolder
 from PIL import Image
 import numpy as np
+import matplotlib.pyplot as plt
 
 ### resnet 50
 #model = models.resnet50(pretrained=True)
@@ -32,13 +33,13 @@ print(model)
 
 for param in model.parameters():
     param.requires_grad = False
-for param in model.classifier.parameters():
+for param in model.classifier[6].parameters():
     param.requires_grad = True
 #print(model)
 
-#optimizer = optim.SGD(model.parameters(), lr=0.01)
-optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, model.parameters()),
-                        lr=0.01,momentum=0.9,weight_decay=0.001)
+optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=0.001)
+#optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, model.parameters()),
+#                        lr=0.01,momentum=0.9,weight_decay=0.001)
 
 
 DEVICE = torch.device( "cuda" if torch.cuda.is_available() else "cpu")
@@ -48,13 +49,11 @@ if (torch.cuda.is_available()):
 print(DEVICE)
 model.to(DEVICE)
 
-epochs = 20
+epochs = 1
 
 transform_resnet50 = transforms.Compose(
     [
-     transforms.RandomResizedCrop(7),
-     transforms.RandomHorizontalFlip(),
-     #transforms.Resize((7,7),Image.ANTIALIAS), #pil image only
+     transforms.Resize((7,7),Image.ANTIALIAS), #pil image only
      transforms.ToTensor(),
      transforms.Normalize((0.1307,), (0.3081,))] ## fixed parameter provided by pytorch
     ## reduce the model complexity
@@ -102,6 +101,11 @@ loss_function = nn.CrossEntropyLoss()
 #loss_function = nn.NLLLoss()
 ### train
 
+train_accs = []
+test_accs = []
+x_axis_train = range(0,9)
+x_axis_test = range(0,8)
+
 for epoch in range(epochs):
   for index, (x,label) in enumerate(train_loader):
     x, label = x.to(DEVICE),label.to(DEVICE)
@@ -116,19 +120,22 @@ for epoch in range(epochs):
     
     count = correct = 0
     
-    
+   
     ### for crossentropy
     loss = loss_function(out,label)
     _ , predict = torch.max(out,1)
     count += x.shape[0]
     correct += (predict == label).sum()
-
+    
+    
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
 
     if (index+1) % 100 == 0 or (index+1) == len(train_loader):
-      print("Train epoch", epoch, 'batch index', index+1, 'loss', float(loss),'train acc', correct*1.0/ count)
+        acc = correct*1.0/ count
+        train_accs.append(acc)
+        print("Train epoch", epoch, 'batch index', index+1, 'loss', float(loss),'train acc', acc)
 
 
   ### test
@@ -152,24 +159,35 @@ for epoch in range(epochs):
     _ , predict = torch.max(out,1)
     count += x.shape[0]
     correct += (predict == label).sum()
-    
+
+     
     if (correct*1.0/ count).item() > best_test_acc:
         best_test_acc = (correct*1.0/ count).item()
 
 
     if (index+1) % 10 == 0 or (index+1) == len(test_loader):
-      print("Train epoch", epoch, 'batch index', index+1, 'loss', float(loss), 'test acc', correct*1.0/ count)
+        acc = correct*1.0/ count
+        test_accs.append(acc)
+        print("Train epoch", epoch, 'batch index', index+1, 'loss', float(loss), 'test acc', acc)
+
+plt.subplot(2, 1, 1)
+plt.plot(x_axis_train, train_accs, 'o-')
+plt.subplot(2, 1, 2)
+plt.plot(x_axis_test, test_accs, '.-')
+plt.show()
+
 
 print('best test acc', best_test_acc)
-torch.save(model, './model_saved_alexnet_3.pth')
+torch.save(model, './model_saved_alexnet_5.pth')
 
 '''
-model_saved = torch.load('./model_saved_alexnet_1.pth')
+model_saved = torch.load('./model_saved_alexnet_3.pth')
 #model_saved.classifier[6].out_features = 10
 model_saved.eval()
 #print(model_saved)
 
 ##### ./model_saved_alexnet_3.pth'  max acc:99.2 
+##### ./model_saved_alexnet_4.pth'  max acc:99.2 
 
 
 test_picture_name_pre = './test_pics/test_'
@@ -195,7 +213,7 @@ for i in range(10):
     max_value,index = torch.max(probability,1)
 
     all_results = probability.data.cpu().numpy()
-    print(all_results)
+    #print(all_results)
     print(index)
 '''
 
